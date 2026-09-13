@@ -5,69 +5,154 @@ for the SupportIQ customer support agent.
 
 
 # ---------------------------------------------------------
-# Risk categories
+# High-risk / fraud / security
 # ---------------------------------------------------------
 
 HIGH_RISK_KEYWORDS = {
     "fraud",
+    "fraudulent",
     "scam",
     "hacked",
+    "hack",
     "stolen",
+    "steal",
     "unauthorized",
+    "unauthorised",
     "identity theft",
     "account compromised",
+    "someone accessed my account",
+    "someone has access to my account",
+    "someone is using my account",
+    "someone used my account",
+    "suspicious activity",
+    "unknown transaction",
 }
+
+
+# ---------------------------------------------------------
+# Financial
+# ---------------------------------------------------------
 
 FINANCIAL_KEYWORDS = {
     "charged twice",
     "double charged",
+    "charged me twice",
     "refund",
     "money back",
     "payment",
     "billing",
+    "bill",
     "charge",
+    "charged",
     "credit card",
     "debit card",
+    "transaction",
+    "overcharged",
+    "wrong charge",
 }
+
+
+# ---------------------------------------------------------
+# Account / security
+# ---------------------------------------------------------
 
 ACCOUNT_KEYWORDS = {
     "password",
-    "login",
+    "forgot my password",
+    "reset password",
+    "cannot log in",
+    "can't log in",
+    "cant log in",
+    "unable to log in",
+    "cannot login",
+    "can't login",
+    "cant login",
+    "unable to login",
     "locked out",
+    "account locked",
     "account access",
+    "access my account",
+    "access to my account",
+    "login problem",
+    "login issue",
+    "sign in",
+    "signin",
     "verification",
-    "security",
+    "verify my account",
+}
+
+# ---------------------------------------------------------
+# Ambiguous / insufficient-information phrases
+# ---------------------------------------------------------
+
+AMBIGUOUS_PATTERNS = {
+    "can you help me",
+    "help me with this",
+    "help me",
+    "i have an issue",
+    "i have a problem",
+    "there is a problem",
+    "something is wrong",
+    "what should i do",
+    "need help",
+    "please help",
 }
 
 
 def detect_risk(query):
     """
-    Detect potential risk categories in a customer query.
-
-    Returns:
-        {
-            "risk_level": str,
-            "risk_categories": list
-        }
+    Detect potential risk categories and ambiguity
+    in a customer query.
     """
 
-    text = query.lower()
+    text = query.lower().strip()
 
     categories = []
 
+    # -------------------------------------------------
     # High-risk issues
-    if any(keyword in text for keyword in HIGH_RISK_KEYWORDS):
+    # -------------------------------------------------
+
+    if any(
+        keyword in text
+        for keyword in HIGH_RISK_KEYWORDS
+    ):
         categories.append("high_risk")
 
+    # -------------------------------------------------
     # Financial issues
-    if any(keyword in text for keyword in FINANCIAL_KEYWORDS):
+    # -------------------------------------------------
+
+    if any(
+        keyword in text
+        for keyword in FINANCIAL_KEYWORDS
+    ):
         categories.append("financial")
 
+    # -------------------------------------------------
     # Account/security issues
-    if any(keyword in text for keyword in ACCOUNT_KEYWORDS):
+    # -------------------------------------------------
+
+    if any(
+        keyword in text
+        for keyword in ACCOUNT_KEYWORDS
+    ):
         categories.append("account_security")
 
+    # -------------------------------------------------
+    # Ambiguous queries
+    # -------------------------------------------------
+
+    if any(
+        pattern in text
+        for pattern in AMBIGUOUS_PATTERNS
+    ):
+        categories.append("ambiguous")
+
+    # -------------------------------------------------
     # Determine overall risk
+    # -------------------------------------------------
+
     if "high_risk" in categories:
         risk_level = "high"
 
@@ -144,12 +229,15 @@ def calculate_confidence(retrieved_results):
 def should_escalate(confidence_info, risk_info):
     """
     Decide whether a customer query should be handled
-    automatically or escalated to a human agent.
+    automatically or escalated to a human.
     """
 
     risk_level = risk_info["risk_level"]
     risk_categories = risk_info["risk_categories"]
-    confidence_level = confidence_info["confidence_level"]
+
+    confidence_level = confidence_info[
+        "confidence_level"
+    ]
 
     # -------------------------------------------------
     # 1. High-risk issues always go to a human.
@@ -166,28 +254,38 @@ def should_escalate(confidence_info, risk_info):
         return True, "financial_issue"
 
     # -------------------------------------------------
-    # 3. Account/security issues with anything below
-    #    high confidence go to a human.
+    # 3. Account/security issues require human review
+    #    unless we have very strong evidence.
     # -------------------------------------------------
 
     if "account_security" in risk_categories:
         if confidence_level != "high":
             return True, "account_security_low_confidence"
 
+        # Even with high retrieval confidence, account
+        # security remains conservative.
+        return True, "account_security"
+
     # -------------------------------------------------
-    # 4. Low retrieval confidence means insufficient
-    #    evidence to safely generate an answer.
+    # 4. Ambiguous queries should not be answered
+    #    automatically.
+    # -------------------------------------------------
+
+    if "ambiguous" in risk_categories:
+        return True, "ambiguous_query"
+
+    # -------------------------------------------------
+    # 5. Low retrieval confidence.
     # -------------------------------------------------
 
     if confidence_level == "low":
         return True, "low_retrieval_confidence"
 
     # -------------------------------------------------
-    # 5. Otherwise AI can handle the request.
+    # 6. Otherwise AI can handle the request.
     # -------------------------------------------------
 
     return False, "safe_for_ai"
-
 # ---------------------------------------------------------
 # Complete decision
 # ---------------------------------------------------------
