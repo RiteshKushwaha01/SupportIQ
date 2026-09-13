@@ -1,0 +1,18 @@
+# Environment
+.env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+
+# Large generated files
+data/processed/retrieval_embeddings.npy
+data/processed/retrieval.index
+data/twcs.db
