@@ -148,22 +148,45 @@ def should_escalate(confidence_info, risk_info):
     """
 
     risk_level = risk_info["risk_level"]
+    risk_categories = risk_info["risk_categories"]
     confidence_level = confidence_info["confidence_level"]
 
-    # High-risk issues always go to a human.
+    # -------------------------------------------------
+    # 1. High-risk issues always go to a human.
+    # -------------------------------------------------
+
     if risk_level == "high":
         return True, "high_risk"
 
-    # Medium-risk issues require strong retrieval.
-    if risk_level == "medium" and confidence_level != "high":
-        return True, "medium_risk_low_confidence"
+    # -------------------------------------------------
+    # 2. Financial issues require human review.
+    # -------------------------------------------------
 
-    # Low retrieval confidence means insufficient evidence.
+    if "financial" in risk_categories:
+        return True, "financial_issue"
+
+    # -------------------------------------------------
+    # 3. Account/security issues with anything below
+    #    high confidence go to a human.
+    # -------------------------------------------------
+
+    if "account_security" in risk_categories:
+        if confidence_level != "high":
+            return True, "account_security_low_confidence"
+
+    # -------------------------------------------------
+    # 4. Low retrieval confidence means insufficient
+    #    evidence to safely generate an answer.
+    # -------------------------------------------------
+
     if confidence_level == "low":
         return True, "low_retrieval_confidence"
 
-    return False, "safe_for_ai"
+    # -------------------------------------------------
+    # 5. Otherwise AI can handle the request.
+    # -------------------------------------------------
 
+    return False, "safe_for_ai"
 
 # ---------------------------------------------------------
 # Complete decision

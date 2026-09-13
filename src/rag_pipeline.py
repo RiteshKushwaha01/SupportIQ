@@ -12,6 +12,7 @@ from src.config import (
 
 from src.retrieval import Retriever
 from src.prompts import build_prompt
+from src.escalation import evaluate_escalation
 
 
 class RAGPipeline:
@@ -41,7 +42,7 @@ class RAGPipeline:
             )
 
         # -------------------------------------------------
-        # 3. Initialize Gemini through OpenAI-compatible API
+        # 3. Initialize Gemini
         # -------------------------------------------------
 
         self.client = OpenAI(
@@ -54,9 +55,9 @@ class RAGPipeline:
 
         print("RAG pipeline ready!")
 
-    # -----------------------------------------------------
-    # Retrieval
-    # -----------------------------------------------------
+    # =====================================================
+    # RETRIEVAL
+    # =====================================================
 
     def retrieve(self, query, top_k=TOP_K):
         """
@@ -69,14 +70,14 @@ class RAGPipeline:
             top_k=top_k,
         )
 
-    # -----------------------------------------------------
-    # Build RAG context
-    # -----------------------------------------------------
+    # =====================================================
+    # BUILD CONTEXT
+    # =====================================================
 
     def build_context(self, query, top_k=TOP_K):
         """
-        Retrieve relevant examples and build
-        the final RAG prompt.
+        Retrieve relevant examples and construct
+        the RAG prompt.
         """
 
         results = self.retrieve(
@@ -91,40 +92,15 @@ class RAGPipeline:
 
         return prompt, results
 
-    # -----------------------------------------------------
-    # Generate response
-    # -----------------------------------------------------
+    # =====================================================
+    # GENERATE RESPONSE
+    # =====================================================
 
-    def generate_response(self, query, top_k=TOP_K):
+    def _generate_with_gemini(self, prompt):
         """
-        Complete RAG pipeline:
-
-        Customer query
-            ↓
-        Retrieval
-            ↓
-        Historical examples
-            ↓
-        RAG prompt
-            ↓
-        Gemini
-            ↓
-        Support response
+        Generate a response using Gemini.
         """
 
-        # 1. Retrieve relevant conversations
-        results = self.retrieve(
-            query,
-            top_k=top_k,
-        )
-
-        # 2. Build RAG prompt
-        prompt = build_prompt(
-            query,
-            results,
-        )
-
-        # 3. Generate response using Gemini
         response = self.client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
@@ -133,13 +109,21 @@ class RAGPipeline:
                     "content": (
                         "You are a professional customer support "
                         "assistant for AmazonHelp.\n\n"
-                        "Your job is to help customers clearly, "
-                        "politely, and concisely.\n\n"
+
+                        "Answer customers clearly, politely, "
+                        "and concisely.\n\n"
+
                         "Use the retrieved historical support "
                         "conversations as guidance.\n\n"
+
                         "Do not invent policies, refunds, prices, "
                         "delivery dates, account information, or "
                         "other unsupported facts.\n\n"
+
+                        "Do not claim that you performed an action "
+                        "such as issuing a refund, changing an "
+                        "account, or modifying an order.\n\n"
+
                         "If the retrieved information is insufficient "
                         "to answer the customer, say that you do not "
                         "have enough information and recommend "
@@ -153,12 +137,126 @@ class RAGPipeline:
             ],
         )
 
-        # 4. Extract generated answer
-        answer = response.choices[0].message.content
+        return response.choices[0].message.content
 
-        # 5. Return complete result
+    # =====================================================
+    # COMPLETE RAG PIPELINE
+    # =====================================================
+
+    def generate_response(self, query, top_k=TOP_K):
+        """
+        Complete SupportIQ decision pipeline:
+
+        Customer query
+              ↓
+        FAISS retrieval
+              ↓
+        Confidence analysis
+              ↓
+        Risk analysis
+              ↓
+        Decision
+           /       \
+        Human       AI
+                    ↓
+                  Gemini
+        """
+
+        # -------------------------------------------------
+        # 1. Retrieve historical examples
+        # -------------------------------------------------
+
+        results = self.retrieve(
+            query,
+            top_k=top_k,
+        )
+
+        # -------------------------------------------------
+        # 2. Evaluate confidence + risk
+        # -------------------------------------------------
+
+        decision = evaluate_escalation(
+            query,
+            results,
+        )
+
+        # -------------------------------------------------
+        # 3. Human escalation
+        # -------------------------------------------------
+
+        if decision["escalate"]:
+
+            return {
+                "query": query,
+                "answer": None,
+                "decision": "human",
+                "escalate": True,
+
+                "reason": decision["reason"],
+
+                "risk_level": decision["risk"]["risk_level"],
+                "risk_categories": decision["risk"]["risk_categories"],
+
+                "confidence": decision["confidence"]["confidence"],
+                "confidence_level": decision["confidence"][
+                    "confidence_level"
+                ],
+
+                "max_similarity": decision["confidence"].get(
+                    "max_similarity"
+                ),
+
+                "average_similarity": decision["confidence"].get(
+                    "average_similarity"
+                ),
+
+                "retrieved_results": results,
+            }
+
+        # -------------------------------------------------
+        # 4. Build RAG prompt
+        # -------------------------------------------------
+
+        prompt = build_prompt(
+            query,
+            results,
+        )
+
+        # -------------------------------------------------
+        # 5. Generate AI response
+        # -------------------------------------------------
+
+        answer = self._generate_with_gemini(
+            prompt
+        )
+
+        # -------------------------------------------------
+        # 6. Return complete result
+        # -------------------------------------------------
+
         return {
             "query": query,
             "answer": answer,
+            "decision": "ai",
+            "escalate": False,
+
+            "reason": decision["reason"],
+
+            "risk_level": decision["risk"]["risk_level"],
+            "risk_categories": decision["risk"]["risk_categories"],
+
+            "confidence": decision["confidence"]["confidence"],
+            "confidence_level": decision["confidence"][
+                "confidence_level"
+            ],
+
+            "max_similarity": decision["confidence"].get(
+                "max_similarity"
+            ),
+
+            "average_similarity": decision["confidence"].get(
+                "average_similarity"
+            ),
+
             "retrieved_results": results,
         }
