@@ -1,3 +1,5 @@
+import time
+
 from openai import OpenAI
 
 from src.config import (
@@ -19,7 +21,6 @@ from src.escalation import evaluate_escalation
 class RAGPipeline:
 
     def __init__(self):
-
         print("Initializing RAG pipeline...")
 
         self.retriever = Retriever(
@@ -29,7 +30,6 @@ class RAGPipeline:
             model_name=EMBEDDING_MODEL,
         )
 
-        # Gemini is not required in mock mode
         if not MOCK_LLM:
 
             if not GEMINI_API_KEY:
@@ -47,14 +47,13 @@ class RAGPipeline:
             )
 
         else:
-
             self.client = None
 
         print("RAG pipeline ready!")
 
-    # =====================================================
-    # Retrieval
-    # =====================================================
+    # ---------------------------------------------------------
+    # RETRIEVAL
+    # ---------------------------------------------------------
 
     def retrieve(self, query, top_k=TOP_K):
 
@@ -63,9 +62,9 @@ class RAGPipeline:
             top_k=top_k,
         )
 
-    # =====================================================
-    # Context
-    # =====================================================
+    # ---------------------------------------------------------
+    # BUILD CONTEXT
+    # ---------------------------------------------------------
 
     def build_context(self, query, top_k=TOP_K):
 
@@ -81,65 +80,92 @@ class RAGPipeline:
 
         return prompt, results
 
-    # =====================================================
-    # Gemini Generation
-    # =====================================================
+    # ---------------------------------------------------------
+    # GEMINI GENERATION
+    # ---------------------------------------------------------
 
     def _generate_with_gemini(self, prompt):
 
-        response = self.client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a professional customer support "
-                        "assistant for AmazonHelp.\n\n"
+        max_retries = 3
 
-                        "Answer customers clearly, politely, "
-                        "and concisely.\n\n"
+        for attempt in range(max_retries):
 
-                        "Use the retrieved historical support "
-                        "conversations as guidance.\n\n"
+            try:
 
-                        "Do not invent policies, refunds, prices, "
-                        "delivery dates, account information, or "
-                        "other unsupported facts.\n\n"
+                response = self.client.chat.completions.create(
+                    model=LLM_MODEL,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a professional customer "
+                                "support assistant for AmazonHelp.\n\n"
 
-                        "Do not claim that you performed an action "
-                        "such as issuing a refund, changing an "
-                        "account, or modifying an order.\n\n"
+                                "Answer customers clearly, politely, "
+                                "and concisely.\n\n"
 
-                        "If the retrieved information is insufficient "
-                        "to answer the customer, say that you do not "
-                        "have enough information and recommend "
-                        "contacting customer support."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                },
-            ],
-        )
+                                "Use the retrieved historical support "
+                                "conversations as guidance.\n\n"
 
-        return response.choices[0].message.content
+                                "Do not invent policies, refunds, "
+                                "prices, delivery dates, account "
+                                "information, or other unsupported "
+                                "facts.\n\n"
 
-    # =====================================================
-    # Mock Generation
-    # =====================================================
+                                "Do not claim that you performed an "
+                                "action such as issuing a refund, "
+                                "changing an account, or modifying "
+                                "an order.\n\n"
+
+                                "If the retrieved information is "
+                                "insufficient to answer the customer, "
+                                "say that you do not have enough "
+                                "information and recommend contacting "
+                                "customer support."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        },
+                    ],
+                )
+
+                return response.choices[0].message.content
+
+            except Exception as e:
+
+                error_text = str(e)
+
+                # Retry temporary Gemini errors.
+                if "503" in  error_text:
+
+                    if attempt < max_retries - 1:
+
+                        wait_time = 2 ** attempt
+
+                        print(
+                            f"Gemini temporarily unavailable "
+                            f"(attempt {attempt + 1}/{max_retries}). "
+                            f"Retrying in {wait_time}s..."
+                        )
+
+                        time.sleep(wait_time)
+
+                        continue
+
+                # All retries exhausted or non-retryable error.
+                raise
+
+    # ---------------------------------------------------------
+    # MOCK GENERATION
+    # ---------------------------------------------------------
 
     def _generate_mock_response(
         self,
         query,
         results,
     ):
-        """
-        Development-only response generator.
-
-        This allows the API and frontend to be tested
-        without consuming Gemini API quota.
-        """
 
         if results:
 
@@ -156,9 +182,9 @@ class RAGPipeline:
             "No relevant previous support case was found."
         )
 
-    # =====================================================
-    # Main Response Generation
-    # =====================================================
+    # ---------------------------------------------------------
+    # MAIN RAG PIPELINE
+    # ---------------------------------------------------------
 
     def generate_response(
         self,
@@ -166,60 +192,43 @@ class RAGPipeline:
         top_k=TOP_K,
     ):
 
-        # -------------------------------------------------
-        # Retrieve
-        # -------------------------------------------------
-
+        # 1. Retrieve relevant historical conversations.
         results = self.retrieve(
             query,
             top_k=top_k,
         )
 
-        # -------------------------------------------------
-        # Safety / Escalation
-        # -------------------------------------------------
-
+        # 2. Evaluate safety and confidence.
         decision = evaluate_escalation(
             query,
             results,
         )
 
-        # -------------------------------------------------
-        # Human escalation
-        # -------------------------------------------------
-
+        # 3. Escalate high-risk/low-confidence requests.
         if decision["escalate"]:
 
             return {
                 "query": query,
                 "answer": None,
-
                 "decision": "human",
                 "escalate": True,
-
                 "reason": decision["reason"],
-
                 "risk_level": decision["risk"]["risk_level"],
                 "risk_categories": decision["risk"]["risk_categories"],
-
                 "confidence": decision["confidence"]["confidence"],
-                "confidence_level": decision["confidence"]["confidence_level"],
-
+                "confidence_level": decision["confidence"][
+                    "confidence_level"
+                ],
                 "max_similarity": decision["confidence"].get(
                     "max_similarity"
                 ),
-
                 "average_similarity": decision["confidence"].get(
                     "average_similarity"
                 ),
-
                 "retrieved_results": results,
             }
 
-        # -------------------------------------------------
-        # Generate AI response
-        # -------------------------------------------------
-
+        # 4. Generate answer.
         if MOCK_LLM:
 
             answer = self._generate_mock_response(
@@ -238,32 +247,24 @@ class RAGPipeline:
                 prompt
             )
 
-        # -------------------------------------------------
-        # Return result
-        # -------------------------------------------------
-
+        # 5. Return complete structured response.
         return {
             "query": query,
             "answer": answer,
-
             "decision": "ai",
             "escalate": False,
-
             "reason": decision["reason"],
-
             "risk_level": decision["risk"]["risk_level"],
             "risk_categories": decision["risk"]["risk_categories"],
-
             "confidence": decision["confidence"]["confidence"],
-            "confidence_level": decision["confidence"]["confidence_level"],
-
+            "confidence_level": decision["confidence"][
+                "confidence_level"
+            ],
             "max_similarity": decision["confidence"].get(
                 "max_similarity"
             ),
-
             "average_similarity": decision["confidence"].get(
                 "average_similarity"
             ),
-
             "retrieved_results": results,
         }

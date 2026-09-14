@@ -98,6 +98,26 @@ AMBIGUOUS_PATTERNS = {
     "please help",
 }
 
+# ---------------------------------------------------------
+# Normal conversational messages
+# ---------------------------------------------------------
+
+GREETING_PATTERNS = {
+    "hi",
+    "hii",
+    "hiii",
+    "hello",
+    "hey",
+    "heyy",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "good night",
+    "how are you",
+    "thanks",
+    "thank you",
+    "thx",
+}
 
 def detect_risk(query):
     """
@@ -221,12 +241,25 @@ def calculate_confidence(retrieved_results):
         "average_similarity": round(avg_score, 4),
     }
 
+def is_simple_conversation(query):
+    """
+    Detect simple greetings and conversational messages.
+
+    These should be handled by AI even when retrieval
+    confidence is low because they do not require
+    historical support retrieval.
+    """
+
+    text = query.lower().strip()
+
+    return text in GREETING_PATTERNS
+
 
 # ---------------------------------------------------------
 # Escalation decision
 # ---------------------------------------------------------
 
-def should_escalate(confidence_info, risk_info):
+def should_escalate(query, confidence_info, risk_info):
     """
     Decide whether a customer query should be handled
     automatically or escalated to a human.
@@ -267,22 +300,30 @@ def should_escalate(confidence_info, risk_info):
         return True, "account_security"
 
     # -------------------------------------------------
+    # -------------------------------------------------
     # 4. Ambiguous queries should not be answered
     #    automatically.
     # -------------------------------------------------
 
     if "ambiguous" in risk_categories:
-        return True, "ambiguous_query"
+     return True, "ambiguous_query"
 
     # -------------------------------------------------
-    # 5. Low retrieval confidence.
+    # 5. Simple greetings / conversational messages.
+    # -------------------------------------------------
+
+    if is_simple_conversation(query):
+        return False, "simple_conversation"
+
+    # -------------------------------------------------
+    # 6. Low retrieval confidence.
     # -------------------------------------------------
 
     if confidence_level == "low":
         return True, "low_retrieval_confidence"
 
     # -------------------------------------------------
-    # 6. Otherwise AI can handle the request.
+    # 7. Otherwise AI can handle the request.
     # -------------------------------------------------
 
     return False, "safe_for_ai"
@@ -302,9 +343,10 @@ def evaluate_escalation(query, retrieved_results):
     )
 
     escalate, reason = should_escalate(
-        confidence_info,
-        risk_info,
-    )
+    query,
+    confidence_info,
+    risk_info,
+)
 
     return {
         "risk": risk_info,

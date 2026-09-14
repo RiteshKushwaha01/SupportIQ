@@ -6,9 +6,9 @@ import pandas as pd
 from src.rag_pipeline import RAGPipeline
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Configuration
-# ---------------------------------------------------------
+# =========================================================
 
 GOLDEN_PATH = Path(
     "notebooks/amazonhelp_golden_set_raw.csv"
@@ -18,17 +18,19 @@ OUTPUT_PATH = Path(
     "evaluation/response_quality_results.csv"
 )
 
-# Number of new Gemini generations
+# Number of NEW generations to evaluate.
+#
+# Keep this small because Gemini free-tier requests
+# are limited.
 SAMPLE_SIZE = 5
 
-# Start from query 10 because the previous run already
-# attempted queries 1-10.
-START_INDEX = 10
+# Continue after the records already generated.
+START_INDEX = 15
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Load golden set
-# ---------------------------------------------------------
+# =========================================================
 
 print("=" * 70)
 print("SUPPORTIQ RESPONSE QUALITY EVALUATION")
@@ -49,9 +51,9 @@ print(
 )
 
 
-# ---------------------------------------------------------
-# Initialize pipeline
-# ---------------------------------------------------------
+# =========================================================
+# Initialize RAG pipeline
+# =========================================================
 
 print("\nInitializing RAG pipeline...")
 
@@ -60,9 +62,9 @@ pipeline = RAGPipeline()
 print("Pipeline ready.")
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Generate responses
-# ---------------------------------------------------------
+# =========================================================
 
 results = []
 
@@ -129,6 +131,9 @@ for local_index, (_, row) in enumerate(
                     ensure_ascii=False,
                 ),
                 "status": "success",
+                "generation_mode": "mock" if answer.startswith(
+                    "This is a development-mode response."
+                ) else "gemini",
             }
         )
 
@@ -156,19 +161,17 @@ for local_index, (_, row) in enumerate(
                 "confidence": None,
                 "retrieved_context": None,
                 "status": "error",
+                "generation_mode": "gemini",
             }
         )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Save results
-# ---------------------------------------------------------
+# =========================================================
 
 new_results_df = pd.DataFrame(results)
 
-# ---------------------------------------------------------
-# Merge with previous results if available
-# ---------------------------------------------------------
 
 if OUTPUT_PATH.exists():
 
@@ -177,11 +180,13 @@ if OUTPUT_PATH.exists():
     )
 
     combined_df = pd.concat(
-        [previous_df, new_results_df],
+        [
+            previous_df,
+            new_results_df,
+        ],
         ignore_index=True,
     )
 
-    # Keep only one record per golden query
     combined_df = combined_df.drop_duplicates(
         subset=["golden_index"],
         keep="last",
@@ -196,6 +201,7 @@ combined_df = combined_df.sort_values(
     "golden_index"
 )
 
+
 combined_df.to_csv(
     OUTPUT_PATH,
     index=False,
@@ -203,9 +209,9 @@ combined_df.to_csv(
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Summary
-# ---------------------------------------------------------
+# =========================================================
 
 print("\n")
 print("=" * 70)
