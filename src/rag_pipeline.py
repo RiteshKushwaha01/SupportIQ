@@ -8,6 +8,7 @@ from src.config import (
     TOP_K,
     GEMINI_API_KEY,
     LLM_MODEL,
+    MOCK_LLM,
 )
 
 from src.retrieval import Retriever
@@ -18,11 +19,8 @@ from src.escalation import evaluate_escalation
 class RAGPipeline:
 
     def __init__(self):
-        print("Initializing RAG pipeline...")
 
-        # -------------------------------------------------
-        # 1. Initialize retriever
-        # -------------------------------------------------
+        print("Initializing RAG pipeline...")
 
         self.retriever = Retriever(
             corpus_path=CORPUS_PATH,
@@ -31,39 +29,34 @@ class RAGPipeline:
             model_name=EMBEDDING_MODEL,
         )
 
-        # -------------------------------------------------
-        # 2. Check Gemini API key
-        # -------------------------------------------------
+        # Gemini is not required in mock mode
+        if not MOCK_LLM:
 
-        if not GEMINI_API_KEY:
-            raise ValueError(
-                "GEMINI_API_KEY not found. "
-                "Make sure it is added to the .env file."
+            if not GEMINI_API_KEY:
+                raise ValueError(
+                    "GEMINI_API_KEY not found. "
+                    "Make sure it is added to the .env file."
+                )
+
+            self.client = OpenAI(
+                api_key=GEMINI_API_KEY,
+                base_url=(
+                    "https://generativelanguage.googleapis.com/"
+                    "v1beta/openai/"
+                ),
             )
 
-        # -------------------------------------------------
-        # 3. Initialize Gemini
-        # -------------------------------------------------
+        else:
 
-        self.client = OpenAI(
-            api_key=GEMINI_API_KEY,
-            base_url=(
-                "https://generativelanguage.googleapis.com/"
-                "v1beta/openai/"
-            ),
-        )
+            self.client = None
 
         print("RAG pipeline ready!")
 
     # =====================================================
-    # RETRIEVAL
+    # Retrieval
     # =====================================================
 
     def retrieve(self, query, top_k=TOP_K):
-        """
-        Retrieve the most relevant historical
-        customer-support conversations.
-        """
 
         return self.retriever.search(
             query,
@@ -71,14 +64,10 @@ class RAGPipeline:
         )
 
     # =====================================================
-    # BUILD CONTEXT
+    # Context
     # =====================================================
 
     def build_context(self, query, top_k=TOP_K):
-        """
-        Retrieve relevant examples and construct
-        the RAG prompt.
-        """
 
         results = self.retrieve(
             query,
@@ -93,13 +82,10 @@ class RAGPipeline:
         return prompt, results
 
     # =====================================================
-    # GENERATE RESPONSE
+    # Gemini Generation
     # =====================================================
 
     def _generate_with_gemini(self, prompt):
-        """
-        Generate a response using Gemini.
-        """
 
         response = self.client.chat.completions.create(
             model=LLM_MODEL,
@@ -140,30 +126,48 @@ class RAGPipeline:
         return response.choices[0].message.content
 
     # =====================================================
-    # COMPLETE RAG PIPELINE
+    # Mock Generation
     # =====================================================
 
-    def generate_response(self, query, top_k=TOP_K):
+    def _generate_mock_response(
+        self,
+        query,
+        results,
+    ):
         """
-        Complete SupportIQ decision pipeline:
+        Development-only response generator.
 
-        Customer query
-              ↓
-        FAISS retrieval
-              ↓
-        Confidence analysis
-              ↓
-        Risk analysis
-              ↓
-        Decision
-           /       \
-        Human       AI
-                    ↓
-                  Gemini
+        This allows the API and frontend to be tested
+        without consuming Gemini API quota.
         """
+
+        if results:
+
+            best_result = results[0]
+
+            return (
+                "This is a development-mode response. "
+                "A similar previous support case was found: "
+                f"{best_result['customer_query']}"
+            )
+
+        return (
+            "This is a development-mode response. "
+            "No relevant previous support case was found."
+        )
+
+    # =====================================================
+    # Main Response Generation
+    # =====================================================
+
+    def generate_response(
+        self,
+        query,
+        top_k=TOP_K,
+    ):
 
         # -------------------------------------------------
-        # 1. Retrieve historical examples
+        # Retrieve
         # -------------------------------------------------
 
         results = self.retrieve(
@@ -172,7 +176,7 @@ class RAGPipeline:
         )
 
         # -------------------------------------------------
-        # 2. Evaluate confidence + risk
+        # Safety / Escalation
         # -------------------------------------------------
 
         decision = evaluate_escalation(
@@ -181,7 +185,7 @@ class RAGPipeline:
         )
 
         # -------------------------------------------------
-        # 3. Human escalation
+        # Human escalation
         # -------------------------------------------------
 
         if decision["escalate"]:
@@ -189,6 +193,7 @@ class RAGPipeline:
             return {
                 "query": query,
                 "answer": None,
+
                 "decision": "human",
                 "escalate": True,
 
@@ -198,9 +203,7 @@ class RAGPipeline:
                 "risk_categories": decision["risk"]["risk_categories"],
 
                 "confidence": decision["confidence"]["confidence"],
-                "confidence_level": decision["confidence"][
-                    "confidence_level"
-                ],
+                "confidence_level": decision["confidence"]["confidence_level"],
 
                 "max_similarity": decision["confidence"].get(
                     "max_similarity"
@@ -214,29 +217,35 @@ class RAGPipeline:
             }
 
         # -------------------------------------------------
-        # 4. Build RAG prompt
+        # Generate AI response
         # -------------------------------------------------
 
-        prompt = build_prompt(
-            query,
-            results,
-        )
+        if MOCK_LLM:
+
+            answer = self._generate_mock_response(
+                query,
+                results,
+            )
+
+        else:
+
+            prompt = build_prompt(
+                query,
+                results,
+            )
+
+            answer = self._generate_with_gemini(
+                prompt
+            )
 
         # -------------------------------------------------
-        # 5. Generate AI response
-        # -------------------------------------------------
-
-        answer = self._generate_with_gemini(
-            prompt
-        )
-
-        # -------------------------------------------------
-        # 6. Return complete result
+        # Return result
         # -------------------------------------------------
 
         return {
             "query": query,
             "answer": answer,
+
             "decision": "ai",
             "escalate": False,
 
@@ -246,9 +255,7 @@ class RAGPipeline:
             "risk_categories": decision["risk"]["risk_categories"],
 
             "confidence": decision["confidence"]["confidence"],
-            "confidence_level": decision["confidence"][
-                "confidence_level"
-            ],
+            "confidence_level": decision["confidence"]["confidence_level"],
 
             "max_similarity": decision["confidence"].get(
                 "max_similarity"

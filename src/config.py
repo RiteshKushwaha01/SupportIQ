@@ -32,3 +32,5 @@ TOP_K = 5
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 LLM_MODEL = "gemini-3.8-flash"
+
+MOCK_LLM = os.getenv("MOCK_LLM", "false").lower() == "true"
