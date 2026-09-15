@@ -11,6 +11,8 @@ type Source = {
 type ChatResponse = {
   query: string
   answer: string | null
+  intent: string
+  intent_score: number
   decision: string
   escalate: boolean
   reason: string
@@ -67,7 +69,15 @@ export default function Home() {
   }
 
   const confidencePercent = response ? response.confidence * 100 : 0
+  const intentScorePercent = response ? response.intent_score * 100 : 0
   const isHuman = response?.escalate === true
+
+  const formatIntent = (intent: string) => {
+    return intent
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
 
   return (
     <main className="font-sans flex h-full min-h-0 overflow-hidden bg-background text-foreground">
@@ -425,67 +435,57 @@ export default function Home() {
 
           {/* AI Analysis panel */}
           <aside className="hidden min-h-0 overflow-y-auto overscroll-contain bg-[#0a1019] p-4 lg:block lg:space-y-4">
-            {/* Confidence */}
+            {/* Intent classification */}
             <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                    AI Analysis
+                    Intent Classification
                   </p>
                   <h3 className="mt-0.5 text-sm font-semibold">
-                    Retrieval Confidence
+                    Customer Intent
                   </h3>
                 </div>
-                <span className="text-[10px] text-slate-600">BGE + FAISS</span>
+
+                <span className="text-[10px] text-slate-600">BGE Semantic</span>
               </div>
 
               {response ? (
                 <>
-                  <div className="mt-5 flex items-end justify-between">
-                    <div>
-                      <span className="text-4xl font-bold tracking-tight">
-                        {confidencePercent.toFixed(1)}
-                      </span>
-                      <span className="ml-0.5 text-lg text-slate-500">%</span>
-                    </div>
-                    <span className="mb-1 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-slate-400">
-                      {response.confidence_level}
-                    </span>
+                  <div className="mt-5">
+                    <p className="text-[9px] uppercase tracking-wider text-slate-600">
+                      Detected Intent
+                    </p>
+
+                    <p className="mt-1.5 text-lg font-semibold text-slate-200">
+                      {formatIntent(response.intent)}
+                    </p>
                   </div>
-                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-500"
-                      style={{ width: `${confidencePercent}%` }}
-                    />
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-black/20 p-2.5">
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
                       <p className="text-[9px] uppercase tracking-wider text-slate-600">
-                        Max Similarity
+                        Semantic Score
                       </p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {response.max_similarity
-                          ? (response.max_similarity * 100).toFixed(1)
-                          : '—'}
-                        %
+
+                      <p className="text-sm font-semibold text-slate-300">
+                        {intentScorePercent.toFixed(1)}%
                       </p>
                     </div>
-                    <div className="rounded-lg bg-black/20 p-2.5">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-600">
-                        Avg Similarity
-                      </p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {response.average_similarity
-                          ? (response.average_similarity * 100).toFixed(1)
-                          : '—'}
-                        %
-                      </p>
+
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-500"
+                        style={{
+                          width: `${Math.min(intentScorePercent, 100)}%`,
+                        }}
+                      />
                     </div>
                   </div>
                 </>
               ) : (
                 <p className="mt-5 text-[13px] text-slate-600">
-                  Confidence metrics will appear after a request.
+                  Intent classification will appear after a request.
                 </p>
               )}
             </section>

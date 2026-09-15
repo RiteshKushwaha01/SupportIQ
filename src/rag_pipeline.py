@@ -16,6 +16,7 @@ from src.config import (
 from src.retrieval import Retriever
 from src.prompts import build_prompt
 from src.escalation import evaluate_escalation
+from src.intent_model import load_intent_classifier
 
 
 class RAGPipeline:
@@ -29,6 +30,10 @@ class RAGPipeline:
             index_path=INDEX_PATH,
             model_name=EMBEDDING_MODEL,
         )
+
+        # Intent classifier
+        print("Loading intent classifier...")
+        self.intent_classifier = load_intent_classifier()
 
         if not MOCK_LLM:
 
@@ -192,24 +197,32 @@ class RAGPipeline:
         top_k=TOP_K,
     ):
 
-        # 1. Retrieve relevant historical conversations.
+        # 1. Classify customer intent.
+        intent_result = self.intent_classifier.predict(query)
+
+        intent = intent_result["intent"]
+        intent_score = intent_result["semantic_score"]
+
+        # 2. Retrieve relevant historical conversations.
         results = self.retrieve(
             query,
             top_k=top_k,
         )
 
-        # 2. Evaluate safety and confidence.
+        # 3. Evaluate safety and confidence.
         decision = evaluate_escalation(
             query,
             results,
         )
 
-        # 3. Escalate high-risk/low-confidence requests.
+        # 4. Escalate high-risk/low-confidence requests.
         if decision["escalate"]:
 
             return {
                 "query": query,
                 "answer": None,
+                "intent": intent,
+                "intent_score": intent_score,
                 "decision": "human",
                 "escalate": True,
                 "reason": decision["reason"],
@@ -228,7 +241,7 @@ class RAGPipeline:
                 "retrieved_results": results,
             }
 
-        # 4. Generate answer.
+        # 5. Generate answer.
         if MOCK_LLM:
 
             answer = self._generate_mock_response(
@@ -247,10 +260,12 @@ class RAGPipeline:
                 prompt
             )
 
-        # 5. Return complete structured response.
+        # 6. Return complete structured response.
         return {
             "query": query,
             "answer": answer,
+            "intent": intent,
+            "intent_score": intent_score,
             "decision": "ai",
             "escalate": False,
             "reason": decision["reason"],

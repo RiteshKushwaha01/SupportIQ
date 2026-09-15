@@ -47,6 +47,9 @@ class ChatResponse(BaseModel):
 
     answer: Optional[str]
 
+    intent: str
+    intent_score: float
+
     decision: str
     escalate: bool
 
@@ -140,6 +143,9 @@ def chat(request: ChatRequest):
         return ChatResponse(
             query=result["query"],
             answer=result.get("answer"),
+
+            intent=result["intent"],
+            intent_score=float(result["intent_score"]),
 
             decision=result["decision"],
             escalate=result["escalate"],

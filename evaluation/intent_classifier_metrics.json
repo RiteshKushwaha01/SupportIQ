@@ -1,0 +1,239 @@
+{
+  "dataset_size": 200,
+  "num_intents": 9,
+  "labels": [
+    "account_subscription",
+    "delivery_tracking",
+    "order_management",
+    "other",
+    "payment_billing",
+    "product_information",
+    "returns_refunds",
+    "seller_marketplace",
+    "technical_support"
+  ],
+  "cross_validation": {
+    "method": "5-fold stratified cross-validation",
+    "random_state": 42
+  },
+  "class_distribution": {
+    "delivery_tracking": 62,
+    "other": 48,
+    "returns_refunds": 20,
+    "account_subscription": 16,
+    "technical_support": 16,
+    "order_management": 12,
+    "payment_billing": 11,
+    "product_information": 11,
+    "seller_marketplace": 4
+  },
+  "majority_baseline": {
+    "model": "majority_baseline",
+    "majority_class": "delivery_tracking",
+    "accuracy": 0.31,
+    "macro_f1": 0.05258693808312129,
+    "weighted_f1": 0.1467175572519084
+  },
+  "tfidf_logistic_regression": {
+    "model": "tfidf_logistic_regression",
+    "folds": [
+      {
+        "fold": 1,
+        "accuracy": 0.44,
+        "macro_f1": 0.2518518518518518,
+        "weighted_f1": 0.40095238095238095
+      },
+      {
+        "fold": 2,
+        "accuracy": 0.48,
+        "macro_f1": 0.2394876079086605,
+        "weighted_f1": 0.4221052631578947
+      },
+      {
+        "fold": 3,
+        "accuracy": 0.48,
+        "macro_f1": 0.18379446640316205,
+        "weighted_f1": 0.38699604743083
+      },
+      {
+        "fold": 4,
+        "accuracy": 0.38,
+        "macro_f1": 0.14709428502531952,
+        "weighted_f1": 0.3037376416686762
+      }
+    ],
+    "mean_accuracy": 0.44499999999999995,
+    "mean_macro_f1": 0.20555705279724848,
+    "mean_weighted_f1": 0.37844783330244547,
+    "classification_report": {
+      "account_subscription": {
+        "precision": 0.16666666666666666,
+        "recall": 0.0625,
+        "f1-score": 0.09090909090909091,
+        "support": 16.0
+      },
+      "delivery_tracking": {
+        "precision": 0.5319148936170213,
+        "recall": 0.8064516129032258,
+        "f1-score": 0.6410256410256411,
+        "support": 62.0
+      },
+      "order_management": {
+        "precision": 0.2,
+        "recall": 0.08333333333333333,
+        "f1-score": 0.11764705882352941,
+        "support": 12.0
+      },
+      "other": {
+        "precision": 0.43859649122807015,
+        "recall": 0.5208333333333334,
+        "f1-score": 0.47619047619047616,
+        "support": 48.0
+      },
+      "payment_billing": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 11.0
+      },
+      "product_information": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 11.0
+      },
+      "returns_refunds": {
+        "precision": 0.35714285714285715,
+        "recall": 0.5,
+        "f1-score": 0.4166666666666667,
+        "support": 20.0
+      },
+      "seller_marketplace": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 4.0
+      },
+      "technical_support": {
+        "precision": 0.4,
+        "recall": 0.125,
+        "f1-score": 0.19047619047619047,
+        "support": 16.0
+      },
+      "accuracy": 0.445,
+      "macro avg": {
+        "precision": 0.23270232318384615,
+        "recall": 0.23312425328554362,
+        "f1-score": 0.2147683471212883,
+        "support": 200.0
+      },
+      "weighted avg": {
+        "precision": 0.36320439396363247,
+        "recall": 0.445,
+        "f1-score": 0.3842399757105639,
+        "support": 200.0
+      }
+    }
+  },
+  "tfidf_linear_svm": {
+    "model": "tfidf_linear_svm",
+    "folds": [
+      {
+        "fold": 1,
+        "accuracy": 0.46,
+        "macro_f1": 0.26877443544110213,
+        "weighted_f1": 0.42190920190920195
+      },
+      {
+        "fold": 2,
+        "accuracy": 0.5,
+        "macro_f1": 0.21816856700577633,
+        "weighted_f1": 0.4190947037458666
+      },
+      {
+        "fold": 3,
+        "accuracy": 0.44,
+        "macro_f1": 0.15822357311719015,
+        "weighted_f1": 0.34006079027355623
+      },
+      {
+        "fold": 4,
+        "accuracy": 0.38,
+        "macro_f1": 0.14779927109615923,
+        "weighted_f1": 0.29836837678721617
+      }
+    ],
+    "mean_accuracy": 0.44499999999999995,
+    "mean_macro_f1": 0.19824146166505696,
+    "mean_weighted_f1": 0.3698582681789603,
+    "classification_report": {
+      "account_subscription": {
+        "precision": 0.2,
+        "recall": 0.0625,
+        "f1-score": 0.09523809523809523,
+        "support": 16.0
+      },
+      "delivery_tracking": {
+        "precision": 0.49523809523809526,
+        "recall": 0.8387096774193549,
+        "f1-score": 0.6227544910179641,
+        "support": 62.0
+      },
+      "order_management": {
+        "precision": 0.25,
+        "recall": 0.08333333333333333,
+        "f1-score": 0.125,
+        "support": 12.0
+      },
+      "other": {
+        "precision": 0.43859649122807015,
+        "recall": 0.5208333333333334,
+        "f1-score": 0.47619047619047616,
+        "support": 48.0
+      },
+      "payment_billing": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 11.0
+      },
+      "product_information": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 11.0
+      },
+      "returns_refunds": {
+        "precision": 0.47368421052631576,
+        "recall": 0.45,
+        "f1-score": 0.46153846153846156,
+        "support": 20.0
+      },
+      "seller_marketplace": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 4.0
+      },
+      "technical_support": {
+        "precision": 0.2,
+        "recall": 0.0625,
+        "f1-score": 0.09523809523809523,
+        "support": 16.0
+      },
+      "accuracy": 0.445,
+      "macro avg": {
+        "precision": 0.22861319966583127,
+        "recall": 0.2242084826762246,
+        "f1-score": 0.2084399576914547,
+        "support": 200.0
+      },
+      "weighted avg": {
+        "precision": 0.35315538847117794,
+        "recall": 0.445,
+        "f1-score": 0.3762315478932245,
+        "support": 200.0
+      }
+    }
+  }
+}
