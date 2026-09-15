@@ -25,7 +25,7 @@ OUTPUT_PATH = Path(
 SAMPLE_SIZE = 5
 
 # Continue after the records already generated.
-START_INDEX = 15
+START_INDEX = 20
 
 
 # =========================================================
@@ -131,9 +131,17 @@ for local_index, (_, row) in enumerate(
                     ensure_ascii=False,
                 ),
                 "status": "success",
-                "generation_mode": "mock" if answer.startswith(
-                    "This is a development-mode response."
-                ) else "gemini",
+                "generation_mode": (
+                    "not_generated"
+                    if answer is None
+                    else (
+                        "mock"
+                        if answer.startswith(
+                            "This is a development-mode response."
+                        )
+                        else "gemini"
+                    )
+                ),
             }
         )
 
@@ -161,7 +169,7 @@ for local_index, (_, row) in enumerate(
                 "confidence": None,
                 "retrieved_context": None,
                 "status": "error",
-                "generation_mode": "gemini",
+                "generation_mode": "error",
             }
         )
 
