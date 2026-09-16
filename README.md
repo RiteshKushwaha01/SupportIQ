@@ -166,7 +166,7 @@ Detailed methodology, failure analysis and the one-week improvement plan are ava
 ### Backend
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY>
+git clone <https://github.com/RiteshKushwaha01/SupportIQ---Intelligent-RAG-Powered-Customer-Support-Agent>
 cd supportIQ
 
 python -m venv .venv
