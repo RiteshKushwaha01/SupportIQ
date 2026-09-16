@@ -6,16 +6,27 @@
 
 ## Table of Contents
 
-1. [Problem Framing](#1-problem-framing)
-2. [Dataset & Golden Evaluation Set](#2-dataset--golden-evaluation-set)
-3. [System Architecture](#3-system-architecture)
-4. [Baselines & Model Selection](#4-baselines--model-selection)
-5. [Evaluation Results](#5-evaluation-results)
-6. [Top 5 Failure Modes](#6-top-5-failure-modes)
-7. [What Is Misleading About My Headline Number?](#7-what-is-misleading-about-my-headline-number)
-8. [What I Would Build With One More Week](#8-what-i-would-build-with-one-more-week)
-9. [Engineering Decisions & Limitations](#9-engineering-decisions--limitations)
-10. [Conclusion](#conclusion)
+- [SupportIQ](#supportiq)
+  - [Hiver SDE Intern Take-Home Report](#hiver-sde-intern-take-home-report)
+- [Table of Contents](#table-of-contents)
+- [1. Problem Framing](#1-problem-framing)
+- [2. Dataset & Golden Evaluation Set](#2-dataset--golden-evaluation-set)
+- [3. System Architecture](#3-system-architecture)
+- [4. Baselines & Model Selection](#4-baselines--model-selection)
+- [5. Evaluation Results](#5-evaluation-results)
+  - [Retrieval](#retrieval)
+  - [Escalation](#escalation)
+  - [Response quality](#response-quality)
+- [6. Top 5 Failure Modes](#6-top-5-failure-modes)
+  - [1. Promotional/non-question messages](#1-promotionalnon-question-messages)
+  - [2. Social-media retrieval noise](#2-social-media-retrieval-noise)
+  - [3. Multilingual weakness](#3-multilingual-weakness)
+  - [4. Account-security escalation](#4-account-security-escalation)
+  - [5. Retrieval evaluation coverage](#5-retrieval-evaluation-coverage)
+- [7. What Is Misleading About My Headline Number?](#7-what-is-misleading-about-my-headline-number)
+- [8. What I Would Build With One More Week](#8-what-i-would-build-with-one-more-week)
+- [9. Decision Log](#9-decision-log)
+- [Conclusion](#conclusion)
 
 ---
 
@@ -209,15 +220,67 @@ Therefore the accurate interpretation is:
 
 ---
 
-## 9. Engineering Decisions & Limitations
+## 9. Decision Log
 
-**Why BGE-small?** It is a practical 384-dimensional embedding model that runs locally on CPU and supports both retrieval and semantic intent classification.
+1. **Chose AmazonHelp as the brand**
+   - Kept the project focused on one brand as required.
+   - This allowed the intent taxonomy and retrieval corpus to be domain-specific.
 
-**Why not always auto-answer?** The system prioritizes safe resolution. Financial, security, high-risk and ambiguous cases are routed toward human handling.
+2. **Used a 9-intent taxonomy**
+   - Kept the taxonomy small enough to have meaningful examples per class.
+   - Sparse categories were merged into broader operational intents.
 
-**Why show evidence?** Agents can inspect the historical interactions, semantic scores, risk categories and final decision instead of trusting an opaque generated answer.
+3. **Used BGE-small for semantic retrieval**
+   - It is a practical 384-dimensional embedding model that runs locally on CPU and supports both retrieval and semantic intent classification.
 
-Limitations include the small 200-example golden set, 35 non-evaluable retrieval examples, English-focused embeddings, uncalibrated semantic scores and limited real-LLM response evaluation.
+4. **Used FAISS IndexFlatIP**
+   - Embeddings are normalized, making inner product equivalent to cosine similarity.
+   - This provides simple and deterministic retrieval for the corpus size.
+
+5. **Used historical resolutions for response grounding**
+   - Similar historical conversations provide concrete evidence for how related cases were handled.
+
+6. **Added an explicit escalation layer**
+   - Financial, account-security, high-risk and ambiguous cases should not rely solely on generated responses.
+
+7. **Used semantic similarity as an escalation signal**
+   - Low similarity can indicate that the system lacks a sufficiently similar historical case.
+   - This signal is treated as a semantic score, not a calibrated probability.
+
+8. **Did not automatically adopt the 0.90 confidence threshold**
+   - Although it improved precision in threshold calibration, it would send a substantially larger fraction of cases to humans.
+   - I treated threshold selection as a policy trade-off rather than automatically choosing the highest-precision threshold.
+
+9. **Used a 200-example golden set**
+   - This is within the required 150–250 range while keeping manual labeling manageable.
+
+10. **Used stratified 4-fold cross-validation**
+    - This reduces dependence on a single train/test split for the relatively small labeled dataset.
+
+11. **Compared trivial and simple baselines**
+    - Majority-class and TF-IDF models provide reference points for measuring whether semantic embeddings add value.
+
+12. **Used human review alongside LLM judging**
+    - Human scoring provides a reference for checking the behavior of the automated judge.
+    - The current jointly scored sample is only n=1, so it is treated as a pilot rather than a general agreement benchmark.
+
+13. **Constrained generated responses to retrieved evidence**
+    - The system is instructed not to invent refunds, prices, delivery dates, account information, or actions it did not perform.
+
+14. **Documented multilingual limitations**
+    - The production embedding model is English-focused, so multilingual messages remain a known limitation rather than being hidden from evaluation.
+
+15. **Separated the README from the detailed evaluation**
+    - The README is optimized for quick review, while this report contains the detailed methodology, analysis, failure modes and limitations.
+
+### Engineering Limitations
+
+- The golden set contains 200 examples, which is useful for a take-home evaluation but still small for broad generalization.
+- 35 golden examples were not evaluable for exact-response retrieval because their expected response IDs were not present in the constructed retrieval corpus.
+- The production embedding model is English-focused.
+- Semantic similarity scores are not calibrated probabilities.
+- Real-LLM response-quality evaluation was limited by API quota.
+- The current judge-human comparison is n=1 and is therefore insufficient to establish reliable judge-human agreement.
 
 One methodological distinction is important: the reported BGE intent metrics use four-fold cross-validation, while the production prototype fits intent centroids on the full labelled set for the demo. These should not be conflated.
 
