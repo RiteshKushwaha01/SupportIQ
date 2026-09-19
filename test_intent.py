@@ -21,4 +21,4 @@ for message in test_messages:
     print()
     print("Message:", message)
     print("Intent:", result["intent"])
-    print("Confidence:", round(result["confidence"], 4))
+    print("Semantic Score:", round(result["semantic_score"], 4))

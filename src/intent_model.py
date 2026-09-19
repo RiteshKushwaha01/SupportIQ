@@ -10,7 +10,7 @@ ANNOTATION_PATH = Path(
 )
 
 
-def load_intent_classifier():
+def load_intent_classifier(model=None):
 
     df = pd.read_csv(ANNOTATION_PATH)
 
@@ -30,7 +30,7 @@ def load_intent_classifier():
         df["intent"].str.strip() != ""
     ].copy()
 
-    classifier = IntentClassifier()
+    classifier = IntentClassifier(model=model)
 
     classifier.fit(
         df["text"].tolist(),

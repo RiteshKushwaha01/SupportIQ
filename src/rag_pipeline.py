@@ -1,6 +1,7 @@
 import time
 
 from openai import OpenAI
+from sentence_transformers import SentenceTransformer
 
 from src.config import (
     CORPUS_PATH,
@@ -24,16 +25,24 @@ class RAGPipeline:
     def __init__(self):
         print("Initializing RAG pipeline...")
 
+        # Load BGE embedding model once and share it
+        # between retrieval and intent classification.
+        print("Loading shared embedding model...")
+        embedding_model = SentenceTransformer(EMBEDDING_MODEL)
+
         self.retriever = Retriever(
             corpus_path=CORPUS_PATH,
             embeddings_path=EMBEDDINGS_PATH,
             index_path=INDEX_PATH,
             model_name=EMBEDDING_MODEL,
+            model=embedding_model,
         )
 
         # Intent classifier
         print("Loading intent classifier...")
-        self.intent_classifier = load_intent_classifier()
+        self.intent_classifier = load_intent_classifier(
+            model=embedding_model
+        )
 
         if not MOCK_LLM:
 

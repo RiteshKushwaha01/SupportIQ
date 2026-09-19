@@ -13,6 +13,7 @@ class Retriever:
         embeddings_path,
         index_path,
         model_name="BAAI/bge-small-en-v1.5",
+        model=None,
     ):
         self.corpus_path = Path(corpus_path)
         self.embeddings_path = Path(embeddings_path)
@@ -21,18 +22,19 @@ class Retriever:
         print("Loading retrieval corpus...")
         self.documents = pd.read_parquet(self.corpus_path)
 
-        print("Loading embeddings...")
-        self.embeddings = np.load(self.embeddings_path)
+        print(
+            "Using FAISS index for retrieval; "
+            "precomputed embeddings are not loaded at inference time."
+        )
 
         print("Loading FAISS index...")
         self.index = faiss.read_index(str(self.index_path))
 
         print("Loading embedding model...")
-        self.model = SentenceTransformer(model_name)
+        self.model = model if model is not None else SentenceTransformer(model_name)
 
         print("Retriever ready!")
         print("Documents:", len(self.documents))
-        print("Embeddings:", self.embeddings.shape)
         print("FAISS vectors:", self.index.ntotal)
 
     def search(self, query, top_k=5):
