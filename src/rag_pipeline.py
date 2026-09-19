@@ -18,12 +18,20 @@ from src.retrieval import Retriever
 from src.prompts import build_prompt
 from src.escalation import evaluate_escalation
 from src.intent_model import load_intent_classifier
+from scripts.download_artifacts import ensure_artifacts
 
 
 class RAGPipeline:
 
     def __init__(self):
         print("Initializing RAG pipeline...")
+
+        # Ensure large retrieval artifacts are available.
+        # This runs only when the RAG pipeline is actually needed,
+        # not when FastAPI starts.
+        print("Checking deployment artifacts...")
+        ensure_artifacts()
+        print("Deployment artifacts ready.")
 
         # Load BGE embedding model once and share it
         # between retrieval and intent classification.
