@@ -3,8 +3,6 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from src.rag_pipeline import RAGPipeline
-
 
 router = APIRouter(
     prefix="/chat",
@@ -78,6 +76,10 @@ def get_pipeline():
     global pipeline
 
     if pipeline is None:
+        # Import the heavy RAG stack only when a chat
+        # request actually needs it.
+        from src.rag_pipeline import RAGPipeline
+
         pipeline = RAGPipeline()
 
     return pipeline
