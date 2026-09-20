@@ -1,5 +1,5 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 
 class IntentClassifier:
@@ -21,7 +21,7 @@ class IntentClassifier:
     ]
 
     def __init__(self, model_name="BAAI/bge-small-en-v1.5", model=None):
-        self.model = model if model is not None else SentenceTransformer(model_name)
+        self.model = model if model is not None else TextEmbedding(model_name=model_name)
         self.centroids = None
 
     def fit(self, texts, labels):
@@ -29,11 +29,9 @@ class IntentClassifier:
         Build one semantic centroid for every intent.
         """
 
-        embeddings = self.model.encode(
-            list(texts),
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
+        embeddings = np.array(
+            list(self.model.embed(list(texts))),
+            dtype="float32",
         )
 
         self.centroids = {}
@@ -65,12 +63,10 @@ class IntentClassifier:
                 "Classifier has not been fitted."
             )
 
-        embedding = self.model.encode(
-            [text],
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )[0]
+        embedding = np.array(
+            list(self.model.embed([text]))[0],
+            dtype="float32",
+        )
 
         intents = list(self.centroids.keys())
 

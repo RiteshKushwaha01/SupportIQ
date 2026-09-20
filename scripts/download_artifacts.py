@@ -10,7 +10,7 @@ REPO_ID = "RiteshKushwaha01/supportiq-artifacts"
 
 ARTIFACTS = [
     "retrieval.index",
-    "retrieval_corpus.parquet",
+    "retrieval_corpus.db",
 ]
 
 

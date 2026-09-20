@@ -1,7 +1,7 @@
 import time
 
 from openai import OpenAI
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 from src.config import (
     CORPUS_PATH,
@@ -36,7 +36,7 @@ class RAGPipeline:
         # Load BGE embedding model once and share it
         # between retrieval and intent classification.
         print("Loading shared embedding model...")
-        embedding_model = SentenceTransformer(EMBEDDING_MODEL)
+        embedding_model = TextEmbedding(model_name=EMBEDDING_MODEL)
 
         self.retriever = Retriever(
             corpus_path=CORPUS_PATH,

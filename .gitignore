@@ -16,3 +16,5 @@ __pycache__/
 data/processed/retrieval_embeddings.npy
 data/processed/retrieval.index
 data/twcs.db
+.vercel
+data/processed/retrieval_corpus.db
