@@ -76,14 +76,18 @@ def get_pipeline():
     global pipeline
 
     if pipeline is None:
-        # Import the heavy RAG stack only when a chat
-        # request actually needs it.
+        print("CHAT: Starting RAG pipeline initialization...", flush=True)
+
+        # Import the heavy RAG stack only when a chat request actually needs it.
         from src.rag_pipeline import RAGPipeline
+
+        print("CHAT: RAGPipeline import completed.", flush=True)
 
         pipeline = RAGPipeline()
 
-    return pipeline
+        print("CHAT: RAG pipeline initialization completed.", flush=True)
 
+    return pipeline
 
 # =========================================================
 # Chat Endpoint
