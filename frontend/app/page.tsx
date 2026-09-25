@@ -26,8 +26,15 @@ type ChatResponse = {
 }
 
 export default function Home() {
+  type Message = {
+    role: 'customer' | 'assistant'
+    content: string
+    escalated?: boolean
+  }
+
   const [query, setQuery] = useState('')
   const [response, setResponse] = useState<ChatResponse | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -36,7 +43,6 @@ export default function Home() {
 
     setLoading(true)
     setError('')
-    setResponse(null)
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat`, {
@@ -51,11 +57,33 @@ export default function Home() {
       })
 
       if (!res.ok) {
-        throw new Error('Unable to connect to SupportIQ API')
+        const errorData = await res.json().catch(() => null)
+
+        throw new Error(
+          errorData?.detail ||
+            `SupportIQ API returned an error (${res.status})`,
+        )
       }
 
       const data: ChatResponse = await res.json()
+
       setResponse(data)
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'customer',
+          content: data.query,
+        },
+        {
+          role: 'assistant',
+          content:
+            data.answer ||
+            'This conversation should be handled by a human support agent.',
+          escalated: data.escalate,
+        },
+      ])
+
       setQuery('')
     } catch (err) {
       setError(
@@ -258,7 +286,7 @@ export default function Home() {
 
             {/* Messages */}
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6">
-              {!response && !loading && (
+              {messages.length === 0 && !loading && (
                 <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-500/10 text-xl ring-1 ring-white/10">
                     ✦
@@ -288,117 +316,53 @@ export default function Home() {
                 </div>
               )}
 
-              {response && (
-                <div className="w-full space-y-5">
-                  {/* Customer message */}
-                  <div className="flex gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700/80 text-[11px] font-semibold">
-                      C
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1.5 flex items-baseline gap-2">
-                        <span className="text-xs font-semibold text-slate-300">
-                          Customer
-                        </span>
-                        <span className="text-[10px] text-slate-600">
-                          Just now
-                        </span>
+              {messages.length > 0 && (
+                <div className="space-y-7">
+                  {messages.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className="flex gap-4"
+                    >
+                      {/* Avatar */}
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                          message.role === 'customer'
+                            ? 'bg-slate-800 text-xs font-semibold'
+                            : 'bg-white text-xs font-black text-slate-950'
+                        }`}
+                      >
+                        {message.role === 'customer' ? 'C' : 'S'}
                       </div>
-                      <div className="inline-block max-w-full rounded-2xl rounded-tl-md bg-[#1a2744] px-4 py-3 text-[13px] leading-relaxed text-slate-100 ring-1 ring-blue-500/10">
-                        {response.query}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Decision banner — system message */}
-                  <div
-                    className={`mx-2 rounded-xl border px-4 py-3.5 ${
-                      isHuman
-                        ? 'border-red-500/20 bg-red-500/[0.06]'
-                        : 'border-emerald-500/20 bg-emerald-500/[0.06]'
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm ${
-                            isHuman
-                              ? 'bg-red-500/15 text-red-400'
-                              : 'bg-emerald-500/15 text-emerald-400'
-                          }`}
-                        >
-                          {isHuman ? '!' : '✓'}
-                        </div>
-                        <div>
-                          <p
-                            className={`text-[13px] font-semibold ${
-                              isHuman ? 'text-red-400' : 'text-emerald-400'
-                            }`}
-                          >
-                            {isHuman
-                              ? 'Human escalation required'
-                              : 'AI can handle this request'}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">
-                            Decision engine: {response.reason}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="rounded-full bg-black/20 px-2.5 py-1 text-[11px] text-slate-300">
-                          Confidence {confidencePercent.toFixed(1)}%
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] ${
-                            isHuman
-                              ? 'bg-red-500/10 text-red-400'
-                              : 'bg-emerald-500/10 text-emerald-400'
-                          }`}
-                        >
-                          Risk: {response.risk_level}
-                        </span>
-                      </div>
-                    </div>
+                      <div className="max-w-3xl">
+                        {/* Name */}
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-300">
+                            {message.role === 'customer'
+                              ? 'Customer'
+                              : 'SupportIQ'}
+                          </span>
 
-                    {response.risk_categories.length > 0 && (
-                      <div className="mt-3 border-t border-red-500/10 pt-3">
-                        <p className="text-[11px] text-slate-500">
-                          Detected risk categories
-                        </p>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {response.risk_categories.map((category) => (
-                            <span
-                              key={category}
-                              className="rounded-md bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400"
-                            >
-                              {category}
+                          {message.role === 'assistant' && (
+                            <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[9px] uppercase tracking-wider text-slate-500">
+                              {message.escalated ? 'Human Review' : 'AI'}
                             </span>
-                          ))}
+                          )}
+                        </div>
+
+                        {/* Message */}
+                        <div
+                          className={`rounded-2xl px-5 py-4 text-sm leading-7 ${
+                            message.role === 'customer'
+                              ? 'rounded-tl-sm bg-slate-800 text-slate-200'
+                              : 'rounded-tl-sm border border-slate-800 bg-slate-900 text-slate-300'
+                          }`}
+                        >
+                          {message.content}
                         </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* AI response */}
-                  <div className="flex gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[11px] font-black text-slate-950">
-                      S
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-300">
-                          SupportIQ
-                        </span>
-                        <span className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-slate-500">
-                          AI
-                        </span>
-                      </div>
-                      <div className="inline-block max-w-full rounded-2xl rounded-tl-md border border-white/[0.06] bg-white/[0.04] px-4 py-3 text-[13px] leading-relaxed text-slate-200">
-                        {response.answer ||
-                          'This conversation should be handled by a human support agent.'}
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
