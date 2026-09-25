@@ -72,6 +72,10 @@ class ChatResponse(BaseModel):
 pipeline = None
 
 
+def is_pipeline_ready():
+    return pipeline is not None
+
+
 def get_pipeline():
     global pipeline
 

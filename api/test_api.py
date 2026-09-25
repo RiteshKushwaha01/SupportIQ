@@ -17,6 +17,8 @@ def test_health():
     data = response.json()
 
     assert data["status"] == "healthy"
+    assert data["service"] == "supportiq-api"
+    assert "ready" in data
 
 
 def test_chat_empty_query():

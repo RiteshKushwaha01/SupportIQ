@@ -1,13 +1,10 @@
-from pathlib import Path
-
 import pandas as pd
 
+from src.config import EVALUATION_DIR
 from src.intent_classifier import IntentClassifier
 
 
-ANNOTATION_PATH = Path(
-    "evaluation/intent_annotation.csv"
-)
+ANNOTATION_PATH = EVALUATION_DIR / "intent_annotation.csv"
 
 
 def load_intent_classifier(model=None):

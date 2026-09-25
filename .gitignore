@@ -11,6 +11,13 @@ __pycache__/
 
 # Secrets
 .env
+.env.local
+frontend/.env.local
+frontend/.env
+
+# Hugging Face / download cache
+data/processed/.cache
+.cache/
 
 # Large generated files
 data/processed/retrieval_embeddings.npy
